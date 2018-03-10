@@ -1,5 +1,8 @@
 """Save laptimes to AC Ranking website."""
 
+import sys
+sys.path.append('apps/python/acr_client/Lib')
+
 import ac
 import acsys
 
