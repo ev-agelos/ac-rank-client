@@ -10,7 +10,7 @@ from requests.auth import HTTPBasicAuth
 from settings import write_auth, read_auth
 
 AUTH = read_auth()
-DOMAIN = 'https://rank.pybook.site'
+DOMAIN = 'https://rank.evagelos.xyz'
 MESSAGES = Queue()  # info to be shown in the ac app
 RESPONSES = Queue()  # for when response needs some sort of handling
 LAPTIMES = Queue()
@@ -62,7 +62,7 @@ def save_auth_from_response(request_thread):
 
 def get_token(username, password):
     """Get new token from the server."""
-    url = urljoin(DOMAIN, 'token/new.json')
+    url = urljoin(DOMAIN, 'new.json')
     payload = dict(username=username, password=password)
 
     request_thread = Thread(target=_post_request, args=[url, payload])
@@ -76,8 +76,8 @@ def validate_auth():
     if AUTH is None:
         MESSAGES.put(msg_when_invalid)
     else:
-        url = urljoin(DOMAIN, 'token/{}/{}.json'.format(AUTH['token'],
-                                                        AUTH['user']))
+        url = urljoin(DOMAIN,
+                      '{}/{}.json'.format(AUTH['token'], AUTH['user']))
         Thread(target=_get_request, args=[url],
                kwargs=dict(msg_on_failure=msg_when_invalid,
                            msg_on_success='Token is valid.')).start()
