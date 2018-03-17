@@ -93,6 +93,7 @@ def add_laptime(splits, car, track, layout=None):
         payload = dict(splits=splits, car=car, track=track, layout=layout)
         Thread(target=_post_request, args=[url],
                kwargs=dict(auth=basic_auth, json=payload)).start()
+        get_laptimes(car, track, layout)
 
 
 def get_laptimes(car, track, layout=None):

@@ -7,7 +7,7 @@ import ac
 import acsys
 
 from acr_server import (MESSAGES, LAPTIMES, validate_auth, get_token,
-                        add_laptime, get_laptimes)
+                        add_laptime)
 
 TOTAL_LAPS_COUNTER = 0
 
@@ -82,5 +82,3 @@ def acUpdate(delta_t):
                         ac.getCarName(0),
                         ac.getTrackName(0),
                         ac.getTrackConfiguration(0) or None)
-            get_laptimes(ac.getCarName(0), ac.getTrackName(0),
-                         layout=ac.getTrackConfiguration(0) or None)
