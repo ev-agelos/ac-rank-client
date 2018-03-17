@@ -65,7 +65,7 @@ def update_laptimes():
     """Update the laptimes labels with the laptimes from server."""
     if not LAPTIMES.empty():
         for label, laptime in zip(LAPTIME_LABELS, LAPTIMES.get()):
-            ac.setText(label, str(laptime['time']))
+            ac.setText(label, laptime['laptime'])
         while not LAPTIMES.empty():  # clear the rest queue
             LAPTIMES.get()
 
