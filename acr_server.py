@@ -4,6 +4,7 @@
 from threading import Thread
 from queue import Queue
 from urllib.parse import urljoin
+import functools
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -14,11 +15,11 @@ from settings import write_auth, read_auth
 AUTH = read_auth()
 DOMAIN = 'https://rank.evagelos.xyz'
 MESSAGES = Queue()  # info to be shown in the ac app
-RESPONSES = Queue()  # for when response needs some sort of handling
 LAPTIMES = Queue()
+TASKS = Queue()
 
 
-def _handle_response(response, msg_on_success=None, msg_on_failure=None):
+def handle_response(response, msg_on_success=None, msg_on_failure=None):
     """Handle the response of a request."""
     if response.status_code != 200:
         if msg_on_failure is not None:
@@ -33,46 +34,22 @@ def _handle_response(response, msg_on_success=None, msg_on_failure=None):
             MESSAGES.put(result['message'])
         elif msg_on_success is not None:  # if custom msg was given
             MESSAGES.put(msg_on_success)
-        else:
-            RESPONSES.put(result)
 
 
-def _get_request(*args, msg_on_success=None, msg_on_failure=None, **kwargs):
-    """Make a GET request to server."""
-    response = requests.get(*args, **kwargs)
-    _handle_response(response, msg_on_success, msg_on_failure)
-
-
-def _post_request(*args, msg_on_success=None, msg_on_failure=None, **kwargs):
-    """Make a POST request to server."""
-    response = requests.post(*args, **kwargs)
-    _handle_response(response, msg_on_success, msg_on_failure)
-
-
-def save_auth_from_response(request_thread):
-    """Wait until response arrived to save auth to settings.ini."""
-    request_thread.join()  # wait for request to finish
-    if RESPONSES.empty():  # something went bad with the request
-        MESSAGES.put('Could not connect to server.')
-    else:
-        response = RESPONSES.get()
-        auth = dict(token=response.get('token', ''),
-                    user=response.get('user', ''))
-        write_auth('auth', **auth)
-        MESSAGES.put('Token updated.')
-
-
-def get_token(username, password):
+def _get_token(username, password):
     """Get new token from the server."""
     url = urljoin(DOMAIN, 'new.json')
-    payload = dict(username=username, password=password)
+    response = requests.post(url, username=username, password=password)
+    if response.status_code == 200:
+        data = response.json()
+        auth = dict(token=data.get('token', ''), user=data.get('user', ''))
+        write_auth('auth', **auth)
+        MESSAGES.put('Token updated.')
+    else:
+        MESSAGES.put('Could not request new token.')
 
-    request_thread = Thread(target=_post_request, args=[url, payload])
-    request_thread.start()
-    Thread(target=save_auth_from_response, args=[request_thread]).start()
 
-
-def validate_auth():
+def _validate_auth():
     """Validate auth and put an appropriate message to MESSAGES queue."""
     msg_when_invalid = 'Current token is invalid. Login to get a new one.'
     if AUTH is None:
@@ -80,48 +57,85 @@ def validate_auth():
     else:
         url = urljoin(DOMAIN,
                       '{}/{}.json'.format(AUTH['token'], AUTH['user']))
-        Thread(target=_get_request, args=[url],
-               kwargs=dict(msg_on_failure=msg_when_invalid,
-                           msg_on_success='Token is valid.')).start()
+        response = requests.get(url)
+        handle_response(response,
+                        msg_on_failure=msg_when_invalid,
+                        msg_on_success='Token is valid.')
 
 
+def validate_auth():
+    TASKS.put(dict(func=_validate_auth))
+
+
+def get_token(username, password):
+    TASKS.put(dict(func=_get_token, args=(username, password)))
+
+
+def auth_required(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if AUTH is not None:
+            return func(*args, **kwargs)
+        MESSAGES.put('Invalid token. Request a new one.')    
+    return wrapper
+
+
+@auth_required
 def add_laptime(splits, car, track, layout=None):
-    """Add laptime to server."""
-    if AUTH is None:
-        MESSAGES.put('Invalid token. Request a new one.')
-    else:
-        basic_auth = HTTPBasicAuth(AUTH['user'], AUTH['token'])
-        url = urljoin(DOMAIN, 'api/laptimes/add')
-        payload = dict(splits=splits, car=car, track=track, layout=layout)
-        thread = Thread(
-            target=_post_request,
-            args=[url],
-            kwargs=dict(auth=basic_auth, json=payload)
-        )
-        thread.start()
-        thread.join()  # wait laptime to be added before getting all of them
-        get_laptimes(car, track, layout)
+    TASKS.put([
+        dict(func=_add_laptime, args=(splits, car, track),
+             kwargs=dict(layout=layout)),
+        dict(func=_get_laptimes, args=(car, track),
+             kwargs=dict(layout=layout))
+    ])
 
 
-def get_laptimes(car, track, layout=None):
-    """Return laptimes."""
-    if AUTH is None:
-        MESSAGES.put('Invalid token. Request a new one.')
-    else:
-        auth = HTTPBasicAuth(AUTH['user'], AUTH['token'])
-        url = urljoin(DOMAIN, 'api/laptimes/get')
-        params = dict(car=car, track=track, layout=layout)
-        request_thread = Thread(target=_get_request, args=[url],
-                                kwargs=dict(auth=auth, params=params))
-        request_thread.start()
-        Thread(target=update_laptimes, args=[request_thread]).start()
+@auth_required
+def get_laptimes(car, track, layout):
+    TASKS.put(
+        dict(func=_get_laptimes, args=(car, track), kwargs=dict(layout=layout))
+    )
 
 
-def update_laptimes(request_thread):
-    """Update laptimes in the app."""
-    request_thread.join()  # wait for laptimes to arrive
-    if RESPONSES.empty():  # something went bad with the request
+def _add_laptime(splits, car, track, layout=None):
+    """Return response of adding a new laptime."""
+    basic_auth = HTTPBasicAuth(AUTH['user'], AUTH['token'])
+    url = urljoin(DOMAIN, 'api/laptimes/add')
+    payload = dict(splits=splits, car=car, track=track, layout=layout)
+    response = requests.post(url, auth=basic_auth, json=payload)
+    handle_response(response)
+
+
+def _get_laptimes(car, track, layout=None):
+    """Return response of getting the laptimes."""
+    auth = HTTPBasicAuth(AUTH['user'], AUTH['token'])
+    url = urljoin(DOMAIN, 'api/laptimes/get')
+    params = dict(car=car, track=track, layout=layout)
+    response = requests.get(url, auth=auth, params=params)
+    if response.status_code != 200:
         MESSAGES.put('Could not retrieve laptimes from server.')
     else:
-        LAPTIMES.put(RESPONSES.get())
+        data = response.json()
+        LAPTIMES.put(data)
         MESSAGES.put('Laptimes updated.')
+
+
+def process_tasks():
+    while 1:
+        if TASKS.empty():
+            continue
+
+        task = TASKS.get()
+        if isinstance(task, list):
+            # prepare lambdas to execute all functions in 1 thread
+            maps = map(
+                lambda t: t['func'](*t['args'], **t['kwargs']), task
+            )
+            Thread(target=lambda: list(maps)).start()
+        else:
+            Thread(target=task['func'],
+                   args=task.get('args'),
+                   kwargs=task.get('kwargs')).start()
+
+
+Thread(target=process_tasks, daemon=True).start()
