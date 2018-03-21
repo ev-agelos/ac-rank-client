@@ -10,6 +10,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from settings import write_auth, read_auth
+from setup_reader import load_setup
 
 
 AUTH = read_auth()
@@ -101,7 +102,8 @@ def _add_laptime(splits, car, track, layout=None):
     """Return response of adding a new laptime."""
     basic_auth = HTTPBasicAuth(AUTH['user'], AUTH['token'])
     url = urljoin(DOMAIN, 'api/laptimes/add')
-    payload = dict(splits=splits, car=car, track=track, layout=layout)
+    payload = dict(splits=splits, car=car, track=track, layout=layout,
+                   car_setup=load_setup(car) or None)
     response = requests.post(url, auth=basic_auth, json=payload)
     handle_response(response)
 

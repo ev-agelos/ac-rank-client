@@ -8,6 +8,7 @@ import acsys
 
 from acr_server import (MESSAGES, LAPTIMES, validate_auth, get_token,
                         add_laptime, get_laptimes)
+from setup_reader import IN_PIT_Q
 
 TOTAL_LAPS_COUNTER = 0
 CAR = ac.getCarName(0)
@@ -78,6 +79,7 @@ def update_laptimes():
 def acUpdate(delta_t):
     """Update continuously with the data from the game."""
     global TOTAL_LAPS_COUNTER
+    IN_PIT_Q.put(ac.isCarInPit(0))
     update_notification()
     update_laptimes()
     total_laps = ac.getCarState(0, acsys.CS.LapCount)
