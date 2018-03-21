@@ -1,5 +1,6 @@
 """Communication with the server."""
 
+
 from threading import Thread
 from queue import Queue
 from urllib.parse import urljoin
@@ -8,6 +9,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from settings import write_auth, read_auth
+
 
 AUTH = read_auth()
 DOMAIN = 'https://rank.evagelos.xyz'
@@ -91,8 +93,13 @@ def add_laptime(splits, car, track, layout=None):
         basic_auth = HTTPBasicAuth(AUTH['user'], AUTH['token'])
         url = urljoin(DOMAIN, 'api/laptimes/add')
         payload = dict(splits=splits, car=car, track=track, layout=layout)
-        Thread(target=_post_request, args=[url],
-               kwargs=dict(auth=basic_auth, json=payload)).start()
+        thread = Thread(
+            target=_post_request,
+            args=[url],
+            kwargs=dict(auth=basic_auth, json=payload)
+        )
+        thread.start()
+        thread.join()  # wait laptime to be added before getting all of them
         get_laptimes(car, track, layout)
 
 

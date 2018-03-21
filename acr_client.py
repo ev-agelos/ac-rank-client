@@ -7,7 +7,7 @@ import ac
 import acsys
 
 from acr_server import (MESSAGES, LAPTIMES, validate_auth, get_token,
-                        add_laptime)
+                        add_laptime, get_laptimes)
 
 TOTAL_LAPS_COUNTER = 0
 
@@ -51,6 +51,8 @@ def acMain(ac_version):
     for index, label in enumerate(LAPTIME_LABELS):
         ac.setSize(label, 70, 20)
         ac.setPosition(label, 200, (index*20) + 50)
+    get_laptimes(ac.getCarName(0), ac.getTrackName(0),
+                 ac.getTrackConfiguration(0) or None)
     return "ACR"
 
 
@@ -69,13 +71,17 @@ def update_laptimes():
         while not LAPTIMES.empty():  # clear the rest queue
             LAPTIMES.get()
 
+
 def acUpdate(delta_t):
     """Update continuously with the data from the game."""
     global TOTAL_LAPS_COUNTER
     update_notification()
     update_laptimes()
     total_laps = ac.getCarState(0, acsys.CS.LapCount)
-    if total_laps != TOTAL_LAPS_COUNTER:
+    # delay a bit(50 milliseconds) cause just after start/finish line data is
+    # not yet correct by the game
+    if total_laps != TOTAL_LAPS_COUNTER and \
+        ac.getCarState(0, acsys.CS.LapTime) > 50:
         TOTAL_LAPS_COUNTER = total_laps
         if TOTAL_LAPS_COUNTER > 0:  # laps might got reset
             add_laptime(ac.getLastSplits(0),
