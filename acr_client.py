@@ -10,6 +10,9 @@ from acr_server import (MESSAGES, LAPTIMES, validate_auth, get_token,
                         add_laptime, get_laptimes)
 
 TOTAL_LAPS_COUNTER = 0
+CAR = ac.getCarName(0)
+TRACK = ac.getTrackName(0)
+LAYOUT = ac.getTrackConfiguration(0) or None
 
 
 def login_button(x, y):
@@ -84,7 +87,4 @@ def acUpdate(delta_t):
         ac.getCarState(0, acsys.CS.LapTime) > 50:
         TOTAL_LAPS_COUNTER = total_laps
         if TOTAL_LAPS_COUNTER > 0:  # laps might got reset
-            add_laptime(ac.getLastSplits(0),
-                        ac.getCarName(0),
-                        ac.getTrackName(0),
-                        ac.getTrackConfiguration(0) or None)
+            add_laptime(ac.getLastSplits(0), CAR, TRACK, LAYOUT)
