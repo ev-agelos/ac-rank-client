@@ -41,35 +41,23 @@ def _get_token(username, password):
     """Get new token from the server."""
     url = urljoin(DOMAIN, 'new.json')
     response = requests.post(url, username=username, password=password)
+    handle_response(response, msg_on_success='Token updated.',
+                    msg_on_failure='Could not request new token.')
     if response.status_code == 200:
         data = response.json()
         auth = dict(token=data.get('token', ''), user=data.get('user', ''))
         write_auth('auth', **auth)
-        MESSAGES.put('Token updated.')
-    else:
-        MESSAGES.put('Could not request new token.')
 
 
 def _validate_auth():
-    """Validate auth and put an appropriate message to MESSAGES queue."""
-    msg_when_invalid = 'Current token is invalid. Login to get a new one.'
-    if AUTH is None:
-        MESSAGES.put(msg_when_invalid)
-    else:
-        url = urljoin(DOMAIN,
-                      '{}/{}.json'.format(AUTH['token'], AUTH['user']))
-        response = requests.get(url)
-        handle_response(response,
-                        msg_on_failure=msg_when_invalid,
-                        msg_on_success='Token is valid.')
-
-
-def validate_auth():
-    TASKS.put(dict(func=_validate_auth))
-
-
-def get_token(username, password):
-    TASKS.put(dict(func=_get_token, args=(username, password)))
+    """Validate user and token."""
+    url = urljoin(DOMAIN, '{}/{}.json'.format(AUTH['token'], AUTH['user']))
+    response = requests.get(url)
+    handle_response(
+        response,
+        msg_on_failure='Could not validate your token. Login to get a new one.',
+        msg_on_success='Token is valid.'
+    )
 
 
 def auth_required(func):
@@ -82,13 +70,18 @@ def auth_required(func):
 
 
 @auth_required
+def validate_auth():
+    TASKS.put(dict(func=_validate_auth))
+
+
+def get_token(username, password):
+    TASKS.put(dict(func=_get_token, args=(username, password)))
+
+
+@auth_required
 def add_laptime(splits, car, track, layout=None):
-    TASKS.put([
-        dict(func=_add_laptime, args=(splits, car, track),
-             kwargs=dict(layout=layout)),
-        dict(func=_get_laptimes, args=(car, track),
-             kwargs=dict(layout=layout))
-    ])
+    TASKS.put(dict(func=_add_laptime, args=(splits, car, track),
+                   kwargs=dict(layout=layout)))
 
 
 @auth_required
@@ -106,6 +99,9 @@ def _add_laptime(splits, car, track, layout=None):
                    car_setup=load_setup(car) or None)
     response = requests.post(url, auth=basic_auth, json=payload)
     handle_response(response)
+    if response.status_code == 200:
+        TASKS.put(dict(func=_get_laptimes, args=(car, track),
+                       kwargs=dict(layout=layout)))
 
 
 def _get_laptimes(car, track, layout=None):
@@ -114,30 +110,20 @@ def _get_laptimes(car, track, layout=None):
     url = urljoin(DOMAIN, 'api/laptimes/get')
     params = dict(car=car, track=track, layout=layout)
     response = requests.get(url, auth=auth, params=params)
-    if response.status_code != 200:
-        MESSAGES.put('Could not retrieve laptimes from server.')
-    else:
+    handle_response(response, msg_on_success='Laptimes updated.',
+                    msg_on_failure='Could not retrieve laptimes from server.')
+    if response.status_code == 200:
         data = response.json()
         LAPTIMES.put(data)
-        MESSAGES.put('Laptimes updated.')
 
 
 def process_tasks():
     while 1:
         if TASKS.empty():
             continue
-
         task = TASKS.get()
-        if isinstance(task, list):
-            # prepare lambdas to execute all functions in 1 thread
-            maps = map(
-                lambda t: t['func'](*t['args'], **t['kwargs']), task
-            )
-            Thread(target=lambda: list(maps)).start()
-        else:
-            Thread(target=task['func'],
-                   args=task.get('args'),
-                   kwargs=task.get('kwargs')).start()
+        Thread(target=task['func'], args=task.get('args'),
+               kwargs=task.get('kwargs')).start()
 
 
 Thread(target=process_tasks, daemon=True).start()
