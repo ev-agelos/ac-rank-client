@@ -14,18 +14,27 @@ LAST_SEEK_POS = None
 
 def follow_ac_log():
     global LAST_SEEK_POS
-    fob = open(AC_LOG)
-    if LAST_SEEK_POS is None:
-        fob.seek(0, os.SEEK_END)
-    else:
-        fob.seek(LAST_SEEK_POS)        
-    while 1:       
-        try:
-            yield fob.readline()
-        except GeneratorExit:
-            LAST_SEEK_POS = fob.tell()
-            fob.close()
-            raise
+    while 1:
+        fob = None
+        while IN_PIT_Q.get() == 1:
+            if fob is None:
+                fob = open(AC_LOG)
+                if LAST_SEEK_POS is None:
+                    fob.seek(0, os.SEEK_END)
+                else:
+                    fob.seek(LAST_SEEK_POS)
+
+            line = fob.readline()
+            if line.startswith("Setup change for Car: "):
+                SETUP_CHANGES_Q.put(line)
+
+        LAST_SEEK_POS = fob.tell()
+        fob.close()
+
+
+logger_reader = Thread(target=follow_ac_log)
+logger_reader.setDaemon(True)
+logger_reader.start()
 
 
 def read_ac_log():
@@ -38,43 +47,7 @@ def read_ac_log():
     lines = fob.readlines()
     LAST_SEEK_POS = fob.tell()
     fob.close()
-    return [line.rstrip('\n') for line in lines]
-
-
-def read_setup_changes(follow=False):
-    pattern = "Setup change for Car: "
-    if not follow:
-        return filter(lambda x: x.startswith(pattern), read_ac_log())
-
-    reader = follow_ac_log()
-    for line in reader:
-        change = None
-        if line.startswith(pattern):
-            change = line[len(pattern):]
-        try:
-            yield change
-        except GeneratorExit:
-            reader.close()
-            raise
-
-
-def read_log_while_in_pits():
-    while 1:
-        reader = None  # reset reader
-        while IN_PIT_Q.get() == 1:
-            if reader is None:
-                reader = read_setup_changes(follow=True)
-            change = next(reader)
-            if change is not None:
-                SETUP_CHANGES_Q.put(change)
-
-        if reader is not None:
-            reader.close()       
-
-
-logger_reader = Thread(target=read_log_while_in_pits)
-logger_reader.setDaemon(True)
-logger_reader.start()
+    return lines
 
 
 def load_setup(car):
@@ -85,29 +58,54 @@ def load_setup(car):
     )
     if not os.path.isfile(latest_setup):
         return setup
-    
+
     config = configparser.ConfigParser()
     config.optionxform = str  # https://stackoverflow.com/a/19359720
     config.read(latest_setup)
     for section in config.sections():
-        if section.lower() != 'car':
-            setup[section.lower()] = int(config[section]['VALUE'])
+        if section != 'CAR':
+            setup[section.lower()] = int(float(config[section]['VALUE']))
+
+    # cant figure out yet how to convert rod values to `clicks`, ignore them
+    ignored_sections = [
+        'ROD_LENGTH_LF',
+        'ROD_LENGTH_RF',
+        'ROD_LENGTH_LR',
+        'ROD_LENGTH_RR',
+        'TOE_OUT_LF',
+        'TOE_OUT_RF',
+        'TOE_OUT_LR',
+        'TOE_OUT_RR'
+    ]
 
     while not SETUP_CHANGES_Q.empty():
-        section, value = load_change_from_line(SETUP_CHANGES_Q.get())
-        setup[section] = value
-
-    for change in read_setup_changes():
-        if change:
-            section, value = load_change_from_line(change)
+        line = SETUP_CHANGES_Q.get()
+        section, value = get_section_value_from_line(line)
+        if section not in ignored_sections:
+            section, value = cast_setup_change(section, value)
             setup[section] = value
+
+    for line in read_ac_log():
+        if line.startswith("Setup change for Car: "):
+            section, value = get_section_value_from_line(line)
+            if section not in ignored_sections:
+                section, value = cast_setup_change(section, value)
+                setup[section] = value
 
     return setup
 
 
-def load_change_from_line(line):
-    # section, from, value_before, to, value_after
-    section, *_, value = line.split(' ')
+def get_section_value_from_line(line):
+    line = line.replace("Setup change for Car: ", '').replace('\n', '')
+    change = line.split(' [0] Changing: ')[1]
+    # section|from|value_before|to|value_after
+    section, *_, value = change.split(' ')
+    return section , value
+
+
+def cast_setup_change(section, value):
     if section in ('CAMPER_LF', 'CAMPER_LR', 'CAMPER_RL', 'CAMPER_RR'):
         value = -abs(round(math.degrees(value) * 10))
-    return section.lower(), int(value)
+    else:
+        value = int(float(value))
+    return section.lower(), value
