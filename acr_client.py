@@ -10,6 +10,7 @@ from acr_server import (MESSAGES, LAPTIMES, validate_auth, get_token,
                         add_laptime, get_laptimes)
 from setup_reader import IN_PIT_Q
 
+
 TOTAL_LAPS_COUNTER = 0
 CAR = ac.getCarName(0)
 TRACK = ac.getTrackName(0)
@@ -37,7 +38,6 @@ def acMain(ac_version):
     NOTIFICATION = ac.addLabel(app, '')
     ac.setPosition(NOTIFICATION, 5, 20)
     ac.setSize(NOTIFICATION, 190, 20)
-
     validate_auth()
 
     USERNAME_INPUT = ac.addTextInput(app, 'Username: ')
@@ -51,7 +51,7 @@ def acMain(ac_version):
     ac.setSize(SUBMIT_BUTTON, 70, 20)
     ac.addOnClickedListener(SUBMIT_BUTTON, login_button)
 
-    LAPTIME_LABELS = {ac.addLabel(app, str(index)) for index in range(10)}
+    LAPTIME_LABELS = tuple(ac.addLabel(app, '#' + str(i)) for i in range(10))
     for index, label in enumerate(LAPTIME_LABELS):
         ac.setSize(label, 70, 20)
         ac.setPosition(label, 200, (index*20) + 50)
@@ -60,33 +60,34 @@ def acMain(ac_version):
     return "ACR"
 
 
-def update_notification():
-    """Update notification label if any message are in the Queue."""
-    # TODO slower updates to give a chance to read them
-    if not MESSAGES.empty():
-        ac.setText(NOTIFICATION, MESSAGES.get())
-
-
 def update_laptimes():
     """Update the laptimes labels with the laptimes from server."""
-    if not LAPTIMES.empty():
-        for label, laptime in zip(LAPTIME_LABELS, LAPTIMES.get()):
-            ac.setText(label, laptime['laptime'])
-        while not LAPTIMES.empty():  # clear the rest queue
-            LAPTIMES.get()
+    if LAPTIMES.empty():
+        return
+    
+    laptimes = LAPTIMES.get()
+    for index, (label, laptime) in enumerate(zip(LAPTIME_LABELS, laptimes)):
+        ac.setText(label, '#{} - {}'.format(index + 1, laptime['laptime']))
+    
+    for label in LAPTIME_LABELS[len(laptimes):]:  # clear rest of labels
+        ac.setText(label, '')
+    with LAPTIMES.mutex:  # clear the rest queue
+        LAPTIMES.queue.clear()
 
 
 def acUpdate(delta_t):
     """Update continuously with the data from the game."""
     global TOTAL_LAPS_COUNTER
     IN_PIT_Q.put(ac.isCarInPit(0))
-    update_notification()
+    if not MESSAGES.empty():
+        ac.setText(NOTIFICATION, MESSAGES.get())
     update_laptimes()
+
     total_laps = ac.getCarState(0, acsys.CS.LapCount)
-    # delay a bit(50 milliseconds) cause just after start/finish line data is
+    # delay a bit(100 milliseconds) cause just after start/finish line data is
     # not yet correct by the game
     if total_laps != TOTAL_LAPS_COUNTER and \
-        ac.getCarState(0, acsys.CS.LapTime) > 50:
+        ac.getCarState(0, acsys.CS.LapTime) > 100:
         TOTAL_LAPS_COUNTER = total_laps
         if TOTAL_LAPS_COUNTER > 0:  # laps might got reset
             add_laptime(ac.getLastSplits(0), CAR, TRACK, LAYOUT)
