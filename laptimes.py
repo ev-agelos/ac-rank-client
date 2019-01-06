@@ -19,7 +19,6 @@ def add_laptime(splits, car, track, layout=None):
                    kwargs=dict(layout=layout)))
 
 
-@auth_required
 def get_laptimes(car, track, layout):
     TASKS.put(
         dict(func=_get_laptimes, args=(car, track), kwargs=dict(layout=layout))
@@ -41,12 +40,10 @@ def _add_laptime(splits, car, track, layout=None):
 
 def _get_laptimes(car, track, layout=None):
     """Return response of getting the laptimes."""
-    auth = requests.auth.HTTPBasicAuth(AUTH['user'], AUTH['token'])
     url = urljoin(DOMAIN, 'api/laptimes/get')
     params = dict(car=car, track=track, layout=layout)
-    response = requests.get(url, auth=auth, params=params)
-    handle_response(response, msg_on_success='Laptimes updated.',
-                    msg_on_failure='Could not retrieve laptimes from server.')
+    response = requests.get(url, params=params)
+    handle_response(response, msg_on_success='Laptimes updated.')
     if response.status_code == 200:
         data = response.json()
         LAPTIMES.put(data)
