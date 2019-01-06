@@ -43,7 +43,7 @@ def _get_laptimes(car, track, layout=None):
     url = urljoin(DOMAIN, 'api/laptimes/get')
     params = dict(car=car, track=track, layout=layout)
     response = requests.get(url, params=params)
-    handle_response(response, msg_on_success='Laptimes updated.')
+    handle_response(response)
     if response.status_code == 200:
         data = response.json()
         LAPTIMES.put(data)
