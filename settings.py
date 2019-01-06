@@ -27,5 +27,5 @@ def read_auth():
     if not all([parser.read(SETTINGS_FILE), parser.has_section('auth')] +
                [parser.has_option('auth', option)
                 for option in ('user', 'token')]):
-        return None
+        return dict(token='', user='')
     return parser['auth']

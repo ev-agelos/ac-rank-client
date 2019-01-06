@@ -6,46 +6,30 @@ import requests
 from settings import DOMAIN, write_auth, read_auth
 from server import handle_response, MESSAGES, TASKS
 
-
 AUTH = read_auth()
+AUTH_IS_VALID = False
 
 
-def _get_token(username, password):
-    """Get new token from the server."""
-    url = urljoin(DOMAIN, 'new.json')
-    response = requests.post(url, dict(username=username, password=password))
-    handle_response(response, msg_on_success='Token updated.',
-                    msg_on_failure='Could not request new token.')
-    if response.status_code == 200:
-        data = response.json()
-        auth = dict(token=data.get('token', ''), user=data.get('user', ''))
-        write_auth('auth', **auth)
-
-
-def _validate_auth():
-    """Validate user and token."""
-    url = urljoin(DOMAIN, '{}/{}.json'.format(AUTH['token'], AUTH['user']))
+def _validate_token(user_id, token):
+    """Validate token."""
+    global AUTH_IS_VALID
+    url = urljoin(DOMAIN, '{}/{}.json'.format(token, user_id))
     response = requests.get(url)
-    handle_response(
-        response,
-        msg_on_failure='Could not validate your token. Login to get a new one.',
-        msg_on_success='Token is valid.'
-    )
+    handle_response(response, msg_on_success='Token is valid.',
+                    msg_on_failure='Invalid token.')
+    if response.status_code == 200:
+        AUTH_IS_VALID = True
+        write_auth('auth', token=token, user=user_id)
 
 
 def auth_required(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if AUTH is not None:
+        if AUTH_IS_VALID:
             return func(*args, **kwargs)
         MESSAGES.put('Invalid token. Request a new one.')    
     return wrapper
 
 
-@auth_required
-def validate_auth():
-    TASKS.put(dict(func=_validate_auth))
-
-
-def get_token(username, password):
-    TASKS.put(dict(func=_get_token, args=(username, password)))
+def validate_token(user_id, token):
+    TASKS.put(dict(func=_validate_token, args=(user_id, token)))

@@ -9,7 +9,7 @@ import acsys
 
 from laptimes import LAPTIMES, add_laptime, get_laptimes
 from server import MESSAGES
-from authentication import validate_auth, get_token
+from authentication import AUTH, validate_token
 
 
 TOTAL_LAPS_COUNTER = 0
@@ -18,39 +18,40 @@ TRACK = ac.getTrackName(0)
 LAYOUT = ac.getTrackConfiguration(0) or None
 
 
-def login_button(x, y):
-    """Request a new token along with user id."""
-    username, password = ac.getText(USERNAME_INPUT), ac.getText(PASSWORD_INPUT)
+def validate_token_button_func(x, y):
+    """Validate user's token."""
+    user_id, token = ac.getText(USER_ID_INPUT), ac.getText(TOKEN_INPUT)
     # empty the inputs
-    ac.setText(USERNAME_INPUT, '')
-    ac.setText(PASSWORD_INPUT, '')
-    if not username or not password:
+    ac.setText(USER_ID_INPUT, '')
+    ac.setText(TOKEN_INPUT, '')
+    if not user_id or not token:
         ac.setText(NOTIFICATION, 'Check your input.')
     else:
-        ac.setText(NOTIFICATION, 'Requesting new token from server..')
-        get_token(username, password)
+        ac.setText(NOTIFICATION, 'Validating token..')
+        validate_token(user_id, token)
 
 
 def acMain(ac_version):
     """Main function that is invoked by Assetto Corsa."""
-    global NOTIFICATION, USERNAME_INPUT, PASSWORD_INPUT, LAPTIME_LABELS
+    global NOTIFICATION, USER_ID_INPUT, TOKEN_INPUT, LAPTIME_LABELS
     app = ac.newApp("AC-Ranking")
     ac.setSize(app, 400, 300)
     NOTIFICATION = ac.addLabel(app, '')
     ac.setPosition(NOTIFICATION, 5, 20)
     ac.setSize(NOTIFICATION, 190, 20)
-    validate_auth()
 
-    USERNAME_INPUT = ac.addTextInput(app, 'Username: ')
-    ac.setPosition(USERNAME_INPUT, 20, 50)
-    ac.setSize(USERNAME_INPUT, 70, 20)
-    PASSWORD_INPUT = ac.addTextInput(app, 'Password: ')
-    ac.setPosition(PASSWORD_INPUT, 20, 80)
-    ac.setSize(PASSWORD_INPUT, 70, 20)
-    SUBMIT_BUTTON = ac.addButton(app, 'Get new token')
-    ac.setPosition(SUBMIT_BUTTON, 20, 110)
-    ac.setSize(SUBMIT_BUTTON, 70, 20)
-    ac.addOnClickedListener(SUBMIT_BUTTON, login_button)
+    validate_token(AUTH['user'], AUTH['token'])
+
+    USER_ID_INPUT = ac.addTextInput(app, 'User id: ')
+    ac.setPosition(USER_ID_INPUT, 20, 50)
+    ac.setSize(USER_ID_INPUT, 70, 20)
+    TOKEN_INPUT = ac.addTextInput(app, 'Token: ')
+    ac.setPosition(TOKEN_INPUT, 20, 80)
+    ac.setSize(TOKEN_INPUT, 70, 20)
+    validate_token_button = ac.addButton(app, 'Validate token')
+    ac.setPosition(validate_token_button, 20, 110)
+    ac.setSize(validate_token_button, 70, 20)
+    ac.addOnClickedListener(validate_token_button, validate_token_button_func)
 
     LAPTIME_LABELS = tuple(ac.addLabel(app, '#' + str(i)) for i in range(10))
     for index, label in enumerate(LAPTIME_LABELS):
