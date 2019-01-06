@@ -69,6 +69,10 @@ def update_laptimes():
     
     laptimes = LAPTIMES.get()
     for index, (label, laptime) in enumerate(zip(LAPTIME_LABELS, laptimes)):
+        if str(laptime['user']) == AUTH['user']:
+            ac.setFontColor(label, 0, 0, 1, 1)
+            ac.setBackgroundColor(label, 0, 0, 0)
+            ac.setBackgroundOpacity(label, 1)
         ac.setText(label, '#{} - {}'.format(index + 1, laptime['laptime']))
     
     for label in LAPTIME_LABELS[len(laptimes):]:  # clear rest of labels
