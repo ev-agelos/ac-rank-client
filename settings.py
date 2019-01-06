@@ -5,7 +5,7 @@ import os
 from configparser import ConfigParser
 
 
-DOMAIN = 'https://rank.evagelos.xyz'
+DOMAIN = 'https://rank.evagelos.me'
 # settings.ini must live next to this file
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'settings.ini')
