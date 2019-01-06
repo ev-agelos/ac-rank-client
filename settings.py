@@ -10,16 +10,6 @@ DOMAIN = 'https://rank.evagelos.me'
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              'settings.ini')
 
-class ACPaths:
-    """Paths for ac files that live in user's documents."""
-
-    path =  os.path.expanduser('~/Documents/Assetto Corsa')
-    log = os.path.join(path, 'logs/log.txt')
-
-    @classmethod
-    def last_setup(cls, car):
-        return os.path.join(cls.path, 'setups/{}/generic/last.ini'.format(car))
-
 
 def write_auth(section, **options):
     """Write user auth info to the settings.ini file."""

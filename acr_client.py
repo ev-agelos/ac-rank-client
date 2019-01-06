@@ -1,29 +1,21 @@
 """Save laptimes to AC Ranking website."""
 
 
-import os
-import json
-import subprocess
-from copy import deepcopy
 import sys
 sys.path.append('apps/python/acr_client/Lib')
 
 import ac
 import acsys
 
-from settings import ACPaths
-from laptimes import LAPTIMES, add_laptime, get_laptimes, UNSAVED_CHANGES
+from laptimes import LAPTIMES, add_laptime, get_laptimes
 from server import MESSAGES
 from authentication import validate_auth, get_token
-from setup_tracker import SetupTracker
 
 
 TOTAL_LAPS_COUNTER = 0
 CAR = ac.getCarName(0)
 TRACK = ac.getTrackName(0)
 LAYOUT = ac.getTrackConfiguration(0) or None
-SETUP_TRACKER = SetupTracker(CAR)
-SETUP_TRACKER.start()
 
 
 def login_button(x, y):
@@ -87,7 +79,6 @@ def update_laptimes():
 def acUpdate(delta_t):
     """Update continuously with the data from the game."""
     global TOTAL_LAPS_COUNTER
-    SETUP_TRACKER.pit.put(ac.isCarInPit(0))
     if not MESSAGES.empty():
         ac.setText(NOTIFICATION, MESSAGES.get())
     update_laptimes()
@@ -100,19 +91,3 @@ def acUpdate(delta_t):
         TOTAL_LAPS_COUNTER = total_laps
         if TOTAL_LAPS_COUNTER > 0:  # laps might got reset
             add_laptime(ac.getLastSplits(0), CAR, TRACK, LAYOUT)
-
-
-def acShutdown():
-    SETUP_TRACKER.pit.put('shutdown')
-
-    try:
-        timestamp = os.path.getmtime(ACPaths.last_setup(CAR))
-    except FileNotFoundError:
-        timestamp = None
-    kwargs = dict(changes=deepcopy(UNSAVED_CHANGES), car=CAR,
-                  last_setup_timestamp=timestamp)
-    subprocess.Popen(
-        ['cmd', '/K', 'python', 'apps/python/acr_client/upload_setups.py',
-        json.dumps(kwargs)],
-        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-    )
