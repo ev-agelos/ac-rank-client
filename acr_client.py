@@ -37,25 +37,25 @@ def acMain(ac_version):
     app = ac.newApp("AC-Ranking")
     ac.setSize(app, 400, 300)
     NOTIFICATION = ac.addLabel(app, '')
-    ac.setPosition(NOTIFICATION, 5, 20)
+    ac.setPosition(NOTIFICATION, 15, 20)
     ac.setSize(NOTIFICATION, 190, 20)
 
     validate_token(AUTH['user'], AUTH['token'])
 
     USER_ID_INPUT = ac.addTextInput(app, 'User id: ')
     ac.setPosition(USER_ID_INPUT, 20, 50)
-    ac.setSize(USER_ID_INPUT, 70, 20)
+    ac.setSize(USER_ID_INPUT, 50, 20)
     TOKEN_INPUT = ac.addTextInput(app, 'Token: ')
     ac.setPosition(TOKEN_INPUT, 20, 80)
-    ac.setSize(TOKEN_INPUT, 70, 20)
+    ac.setSize(TOKEN_INPUT, 170, 20)
     validate_token_button = ac.addButton(app, 'Validate token')
     ac.setPosition(validate_token_button, 20, 110)
-    ac.setSize(validate_token_button, 70, 20)
+    ac.setSize(validate_token_button, 120, 20)
     ac.addOnClickedListener(validate_token_button, validate_token_button_func)
 
     LAPTIME_LABELS = tuple(ac.addLabel(app, '#' + str(i)) for i in range(10))
     for index, label in enumerate(LAPTIME_LABELS):
-        ac.setSize(label, 70, 20)
+        ac.setSize(label, 120, 20)
         ac.setPosition(label, 200, (index*20) + 50)
     get_laptimes(ac.getCarName(0), ac.getTrackName(0),
                  ac.getTrackConfiguration(0) or None)
