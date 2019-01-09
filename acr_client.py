@@ -31,6 +31,12 @@ def validate_token_button_func(x, y):
         validate_token(user_id, token)
 
 
+def refresh_button_func(x, y):
+    """Refresh laptimes."""
+    get_laptimes(ac.getCarName(0), ac.getTrackName(0),
+                 ac.getTrackConfiguration(0) or None)
+
+
 def acMain(ac_version):
     """Main function that is invoked by Assetto Corsa."""
     global NOTIFICATION, USER_ID_INPUT, TOKEN_INPUT, LAPTIME_LABELS
@@ -45,6 +51,7 @@ def acMain(ac_version):
     USER_ID_INPUT = ac.addTextInput(app, 'User id: ')
     ac.setPosition(USER_ID_INPUT, 20, 50)
     ac.setSize(USER_ID_INPUT, 50, 20)
+
     TOKEN_INPUT = ac.addTextInput(app, 'Token: ')
     ac.setPosition(TOKEN_INPUT, 20, 80)
     ac.setSize(TOKEN_INPUT, 170, 20)
@@ -52,6 +59,11 @@ def acMain(ac_version):
     ac.setPosition(validate_token_button, 20, 110)
     ac.setSize(validate_token_button, 120, 20)
     ac.addOnClickedListener(validate_token_button, validate_token_button_func)
+
+    refresh_button = ac.addButton(app, '\u21BB')
+    ac.setPosition(refresh_button, 300, 5)
+    ac.setSize(refresh_button, 15, 18)
+    ac.addOnClickedListener(refresh_button, refresh_button_func)
 
     LAPTIME_LABELS = tuple(ac.addLabel(app, '#' + str(i)) for i in range(10))
     for index, label in enumerate(LAPTIME_LABELS):
