@@ -20,6 +20,8 @@ def _validate_token(user_id, token):
     if response.status_code == 200:
         AUTH_IS_VALID = True
         write_auth('auth', token=token, user=user_id)
+    else:
+        AUTH_IS_VALID = False
 
 
 def auth_required(func):

@@ -10,6 +10,7 @@ import acsys
 from laptimes import LAPTIMES, add_laptime, get_laptimes
 from server import MESSAGES
 from authentication import AUTH, validate_token
+from settings import read_auth
 
 
 TOTAL_LAPS_COUNTER = 0
@@ -20,15 +21,10 @@ LAYOUT = ac.getTrackConfiguration(0) or None
 
 def validate_token_button_func(x, y):
     """Validate user's token."""
-    user_id, token = ac.getText(USER_ID_INPUT), ac.getText(TOKEN_INPUT)
-    # empty the inputs
-    ac.setText(USER_ID_INPUT, '')
-    ac.setText(TOKEN_INPUT, '')
-    if not user_id or not token:
-        ac.setText(NOTIFICATION, 'Check your input.')
-    else:
-        ac.setText(NOTIFICATION, 'Validating token..')
-        validate_token(user_id, token)
+    global AUTH
+    AUTH = read_auth()
+    ac.setText(NOTIFICATION, 'Validating token..')
+    validate_token(AUTH['user'], AUTH['token'])
 
 
 def refresh_button_func(x, y):
@@ -39,7 +35,7 @@ def refresh_button_func(x, y):
 
 def acMain(ac_version):
     """Main function that is invoked by Assetto Corsa."""
-    global NOTIFICATION, USER_ID_INPUT, TOKEN_INPUT, LAPTIME_LABELS
+    global NOTIFICATION, LAPTIME_LABELS
     app = ac.newApp("AC-Ranking")
     ac.setSize(app, 400, 300)
     NOTIFICATION = ac.addLabel(app, '')
@@ -48,15 +44,8 @@ def acMain(ac_version):
 
     validate_token(AUTH['user'], AUTH['token'])
 
-    USER_ID_INPUT = ac.addTextInput(app, 'User id: ')
-    ac.setPosition(USER_ID_INPUT, 20, 50)
-    ac.setSize(USER_ID_INPUT, 50, 20)
-
-    TOKEN_INPUT = ac.addTextInput(app, 'Token: ')
-    ac.setPosition(TOKEN_INPUT, 20, 80)
-    ac.setSize(TOKEN_INPUT, 170, 20)
     validate_token_button = ac.addButton(app, 'Validate token')
-    ac.setPosition(validate_token_button, 20, 110)
+    ac.setPosition(validate_token_button, 20, 40)
     ac.setSize(validate_token_button, 120, 20)
     ac.addOnClickedListener(validate_token_button, validate_token_button_func)
 
