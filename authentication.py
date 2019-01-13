@@ -6,7 +6,7 @@ import requests
 from settings import DOMAIN, write_auth, read_auth
 from server import handle_response, MESSAGES, TASKS
 
-AUTH = read_auth()
+AUTH = dict(user='', token='')
 AUTH_IS_VALID = False
 
 
@@ -20,7 +20,11 @@ def _validate_token(user_id, token):
     if response.status_code == 200:
         AUTH_IS_VALID = True
         write_auth('auth', token=token, user=user_id)
+        AUTH['user'] = user_id
+        AUTH['token'] = token
     else:
+        AUTH['user'] = ''
+        AUTH['token'] = ''
         AUTH_IS_VALID = False
 
 

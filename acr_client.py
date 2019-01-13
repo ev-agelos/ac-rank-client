@@ -21,10 +21,9 @@ LAYOUT = ac.getTrackConfiguration(0) or None
 
 def validate_token_button_func(x, y):
     """Validate user's token."""
-    global AUTH
-    AUTH = read_auth()
+    auth = read_auth()
     ac.setText(NOTIFICATION, 'Validating token..')
-    validate_token(AUTH['user'], AUTH['token'])
+    validate_token(auth['user'], auth['token'])
 
 
 def refresh_button_func(x, y):
@@ -42,7 +41,8 @@ def acMain(ac_version):
     ac.setPosition(NOTIFICATION, 15, 20)
     ac.setSize(NOTIFICATION, 190, 20)
 
-    validate_token(AUTH['user'], AUTH['token'])
+    auth = read_auth()
+    validate_token(auth['user'], auth['token'])
 
     validate_token_button = ac.addButton(app, 'Validate token')
     ac.setPosition(validate_token_button, 20, 40)
@@ -67,7 +67,6 @@ def update_laptimes():
     """Update the laptimes labels with the laptimes from server."""
     if LAPTIMES.empty():
         return
-    
     laptimes = LAPTIMES.get()
     for index, (label, laptime) in enumerate(zip(LAPTIME_LABELS, laptimes)):
         if str(laptime['user']) == AUTH['user']:
@@ -88,7 +87,6 @@ def acUpdate(delta_t):
     if not MESSAGES.empty():
         ac.setText(NOTIFICATION, MESSAGES.get())
     update_laptimes()
-
     total_laps = ac.getCarState(0, acsys.CS.LapCount)
     # delay a bit(100 milliseconds) cause just after start/finish line data is
     # not yet correct by the game
